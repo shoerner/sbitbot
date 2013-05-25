@@ -2,10 +2,10 @@
 
 use strict;
 use warnings;
-use Switch;
+use v5.10.1;
 use Bot::BasicBot;
 use Config::Simple;
-use Time::Piece;
+use File::Grep qw{fgrep};
 
 my $cfg = new Config::Simple('bot.cfg');
 
@@ -20,7 +20,7 @@ my $bot = Bot::BasicBot->new(
 
 	nick   => $cfg->param('nick'),
 	username => $cfg->param('username'),
-	name   => $cfg->param('realname'),
+	name   => $cfg->param('realname')
 );
 #Start the bot
 $bot->run();
@@ -36,7 +36,7 @@ sub said
 	toIRCLog($who, $channel, $body);
 	
 	#If this is not a private message and the caller command is present
-	if($channel ne 'msg') && $body =~ /^\!/)
+	if($channel ne 'msg' && $body =~ /^\!/)
 	{
 		toCMDLog($who, $channel, $body);
 		return runCommand($who, $body);
@@ -62,10 +62,11 @@ sub toIRCLog
 	else
 	{
 		#Make file handle
-		my $date = Time::Piece->new->strftime('%m%d%y');
-		my $file = $cfg->param('storeChatPrefix') . "_$channel" . "_$date.txt";
+		my @timeData = localtime(time);
+		my $fileTime = $timeData[4] . $timeData[3] . (1900+$timeData[5]);
+		my $file = $cfg->param('storeChatPrefix') . "_$channel" . "_$fileTime.txt";
 		open(my $fileHandle, "<<", $file);
-		print $fileHandle "[$who]: $body\n";
+		print $fileHandle "$timeData[3]:$timeData[2]:$timeData[1] [$who]: $body\n";
 		close($fileHandle);
 	}
 	return;
@@ -81,11 +82,12 @@ sub toCMDLog
         }
         else
         {
-                #Make file handle
-                my $date = Time::Piece->new->strftime('%m%d%y');
-                my $file = $cfg->param('storeCommands') . "_$date.txt";
+		#Make file handle
+                my @timeData = localtime(time);
+                my $fileTime = $timeData[4] . $timeData[3] . (1900+$timeData[5]);
+                my $file = $cfg->param('storeChatPrefix') . "_$channel" . "_$fileTime.txt";
                 open(my $fileHandle, "<<", $file);
-                print $fileHandle "[$who]: $body\n";
+                print $fileHandle "$timeData[3]:$timeData[2]:$timeData[1] [$who]: $body\n";
                 close($fileHandle);
         }
         return;
@@ -102,14 +104,19 @@ sub runCommand
 	my $localCommand = substr($command, 0, index($command, ' '));
 	my $commandArguements = substr($command, index($command, ' ')); 
 	
-	switch($localCommand)
+	for($localCommand)
 	{
-		case 'choose': { return choose($commandArguements);}
-		else { return "Invalid command\n";
+		when (/^choose$/)   { return choose($commandArguements);}
+		when (/^history$/)  { return historySearch($commandArguements);} 
+		default { return "Invalid command\n";}
 	}
 }
 sub choose
 {
 	my @choiceElements = split(/ /, $_[0]);
 	return $choiceElements[rand @choiceElements];
+}
+sub historySearch
+{
+	
 }
