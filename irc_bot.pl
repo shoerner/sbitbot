@@ -4,12 +4,14 @@ use strict;
 use warnings;
 use Bot::BasicBot;
 use Config::Simple;
+use Time::Piece;
 
 my $cfg = new Config::Simple('bot.cfg');
 
-#Get variables here like thus
-# my $var = $cfg->param("Varname");
+#Get callback information
+my $caller = $cfg->param('caller');
 
+#instantiate the bot
 my $bot = Bot::BasicBot->new(
 	server => $cfg->param('server'),
 	port   => $cfg->param('port'),
@@ -19,8 +21,10 @@ my $bot = Bot::BasicBot->new(
 	username => $cfg->param('username'),
 	name   => $cfg->param('realname'),
 );
+#Start the bot
 $bot->run();
 
+#Overrides Bot::BasicBot 'said' sub
 sub said
 {
 	my ($self, $message) = @_;
@@ -29,10 +33,14 @@ sub said
 	my $body = $message->{body};
 	
 	toIRCLog($who, $channel, $body);
+
+	if($channel 
 }
 
+#logs IRC output to file if enabled
 sub toIRCLog
 {
+	my ($who, $channel, $body) = $_;
 	if(!$cfg->param('storeChat'))
 	{
 		return 0;
@@ -40,5 +48,11 @@ sub toIRCLog
 	else
 	{
 		#Make file handle
-		open
+		my $date = Time::Piece->new->strftime('%m%d%y');
+		my $file = $cfg->param('storeChatPrefix') . "_$channel" . "_$date.txt";
+		open(my $fileHandle, "<<", $file);
+		print $fileHandle "[$who]: $body\n";
+		close($fileHandle);
+	}
+	return;
 }
