@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use Switch;
 use Bot::BasicBot;
 use Config::Simple;
 use Time::Piece;
@@ -33,8 +34,21 @@ sub said
 	my $body = $message->{body};
 	
 	toIRCLog($who, $channel, $body);
-
-	if($channel 
+	
+	#If this is not a private message and the caller command is present
+	if($channel ne 'msg') && $body =~ /^\!/)
+	{
+		toCMDLog($who, $channel, $body);
+		return runCommand($who, $body);
+	}
+	elsif($channel eq 'msg')
+	{
+		return "Sorry, private messages are not accepted at this time\n";
+	}
+	else
+	{
+		return undef;
+	}
 }
 
 #logs IRC output to file if enabled
@@ -55,4 +69,47 @@ sub toIRCLog
 		close($fileHandle);
 	}
 	return;
+}
+
+#logs command execution to file if enabled
+sub toCMDLog
+{
+        my ($who, $channel, $body) = $_;
+        if(!$cfg->param('storeCommands'))
+        {
+                return 0;
+        }
+        else
+        {
+                #Make file handle
+                my $date = Time::Piece->new->strftime('%m%d%y');
+                my $file = $cfg->param('storeCommands') . "_$date.txt";
+                open(my $fileHandle, "<<", $file);
+                print $fileHandle "[$who]: $body\n";
+                close($fileHandle);
+        }
+        return;
+}
+
+sub runCommand
+{
+	#Get username requesting - possible future implementation
+	my $requestUser = $_[0];
+
+	#Remainder of string is requested command
+	my $command = substr($_[1], 1);
+
+	my $localCommand = substr($command, 0, index($command, ' '));
+	my $commandArguements = substr($command, index($command, ' ')); 
+	
+	switch($localCommand)
+	{
+		case 'choose': { return choose($commandArguements);}
+		else { return "Invalid command\n";
+	}
+}
+sub choose
+{
+	my @choiceElements = split(/ /, $_[0]);
+	return $choiceElements[rand @choiceElements];
 }
