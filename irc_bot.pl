@@ -5,15 +5,15 @@ use strict;
 use Config::Simple;
 use File::Grep qw{fgrep};
 use URI::Title qw( title );
+use base qw( Bot::BasicBot );
 
 my $cfg = new Config::Simple('bot.cfg');
-
-use base qw( Bot::BasicBot );
 
 #Overrides Bot::BasicBot 'said' sub
 sub said
 {
     my ($self, $message) = @_;
+    
     my $who = $message->{raw_nick};
     my $channel = $message->{channel};
     my $body = $message->{body}; 
@@ -45,8 +45,7 @@ sub said
 #logs IRC output to file if enabled
 sub toIRCLog
 {
-    my ($who, $channel, $body) = $_;
-    $channel = 'unspecified' if !defined $channel;
+    my ($who, $channel, $body) = @_;
     if(!$cfg->param('storeChat'))
     {
         return 0;
@@ -56,10 +55,7 @@ sub toIRCLog
         #Make file handle
         my @timeData = localtime(time);
         my $fileTime = $timeData[4] . $timeData[3] . (1900+$timeData[5]);
-        print "Prefix: " . $cfg->param('storeChatPrefix') . "\n";
-                print "Channel: $channel\n";
-                print "FileTime: $fileTime\n";
-        my $file = $cfg->param('storeChatPrefix') . "_$channel" . "_$fileTime.txt";
+        my $file = $cfg->param('storeChatPrefix') . "$channel" . "_$fileTime.txt";
         open(my $fileHandle, ">>", $file);
         print $fileHandle "$timeData[3]:$timeData[2]:$timeData[1] [$who]: $body\n";
         close($fileHandle);
@@ -70,22 +66,22 @@ sub toIRCLog
 #logs command execution to file if enabled
 sub toCMDLog
 {
-        my ($who, $channel, $body) = $_;
-        if(!$cfg->param('storeCommands'))
-        {
-                return 0;
-        }
-        else
-        {
-            #Make file handle
-            my @timeData = localtime(time);
-            my $fileTime = $timeData[4] . $timeData[3] . (1900+$timeData[5]);
-            my $file = $cfg->param('storeCommandsLog') . "_$channel" . "_$fileTime.txt";
-            open(my $fileHandle, ">>", $file);
-            print $fileHandle "$timeData[3]:$timeData[2]:$timeData[1] [$who]: $body\n";
-            close($fileHandle);
-        }
-        return;
+    my ($who, $channel, $body) = @_;
+    if(!$cfg->param('storeCommands'))
+    {
+            return 0;
+    }
+    else
+    {
+        #Make file handle
+        my @timeData = localtime(time);
+        my $fileTime = $timeData[4] . $timeData[3] . (1900+$timeData[5]);
+        my $file = $cfg->param('storeCommandsLog') . "$channel" . "_$fileTime.txt";
+        open(my $fileHandle, ">>", $file);
+        print $fileHandle "$timeData[3]:$timeData[2]:$timeData[1] [$who]: $body\n";
+        close($fileHandle);
+    }
+    return;
 }
 
 #Checks for command keywords
@@ -101,7 +97,7 @@ sub runCommand
     my $commandArguements = substr($command, index($command, ' ')); 
 
     if($localCommand =~ m/^choose$/) { return choose($commandArguements); }
-    elsif($localCommand =~ m/^history$/) { return historySearch($commandArguements);}
+    elsif($localCommand =~ m/^history$/) { return historySearch($requestUser, $commandArguements);}
 }
 
 #Random choice 
@@ -114,7 +110,12 @@ sub choose
 #TODO: Search history files
 sub historySearch
 {
-
+    my $user = shift(@_);
+    my $string = join(' ', @_);
+    my @matches = fgrep { $string } glob "ircLog*.txt";
+    warn $matches[0]{'matches');
+    MyBot->say({who=>$user, channel=>'msg', body=>join("\n", @matches)});
+    return;
 }
 
 # help text for the bot
@@ -123,9 +124,9 @@ sub help { "I'm annoying, and do nothing useful." }
 # Create an instance of the bot and start it running. Connect
 # to the main perl IRC server, and join some channels.
 MyBot->new(
-    server => 'irc.freenode.net',
-    channels => ["##shoernerbot"],
+    server => $cfg->param('server'),
+    channels => $cfg->param('channels'),
 
-    nick      => "sbot",
-    alt_nicks => ["shoernerbot", "simplebot"],
+    nick      => $cfg->param('nick'),
+    alt_nicks => [$cfg->param('altnicks')],
 )->run();
